@@ -33,8 +33,7 @@
 
 
 static const char AUTHORIZATION_HEADER[] = "Authorization";
-static const char qop_auth[] PROGMEM = "qop=auth";
-static const char qop_auth_quoted[] PROGMEM = "qop=\"auth\"";
+static const char qop_auth[] = "qop=\"auth\"";
 static const char WWW_Authenticate[] = "WWW-Authenticate";
 static const char Content_Length[] = "Content-Length";
 
@@ -46,7 +45,6 @@ WebServer::WebServer(IPAddress addr, int port)
 , _currentVersion(0)
 , _currentStatus(HC_NONE)
 , _statusChange(0)
-, _nullDelay(true)
 , _currentHandler(nullptr)
 , _firstHandler(nullptr)
 , _lastHandler(nullptr)
@@ -68,7 +66,6 @@ WebServer::WebServer(int port)
 , _currentVersion(0)
 , _currentStatus(HC_NONE)
 , _statusChange(0)
-, _nullDelay(true)
 , _currentHandler(nullptr)
 , _firstHandler(nullptr)
 , _lastHandler(nullptr)
@@ -123,9 +120,9 @@ static String md5str(String &in){
     return String(out);
   memset(_buf, 0x00, 16);
   mbedtls_md5_init(&_ctx);
-  mbedtls_md5_starts_ret(&_ctx);
-  mbedtls_md5_update_ret(&_ctx, (const uint8_t *)in.c_str(), in.length());
-  mbedtls_md5_finish_ret(&_ctx, _buf);
+  mbedtls_md5_starts(&_ctx);
+  mbedtls_md5_update(&_ctx, (const uint8_t *)in.c_str(), in.length());
+  mbedtls_md5_finish(&_ctx, _buf);
   for(i = 0; i < 16; i++) {
     sprintf(out + (i * 2), "%02x", _buf[i]);
   }
@@ -186,7 +183,7 @@ bool WebServer::authenticate(const char * username, const char * password){
       }
       // parameters for the RFC 2617 newer Digest
       String _nc,_cnonce;
-      if(authReq.indexOf(FPSTR(qop_auth)) != -1 || authReq.indexOf(FPSTR(qop_auth_quoted)) != -1) {
+      if(authReq.indexOf(FPSTR(qop_auth)) != -1) {
         _nc = _extractParam(authReq, F("nc="), ',');
         _cnonce = _extractParam(authReq, F("cnonce=\""),'\"');
       }
@@ -206,7 +203,7 @@ bool WebServer::authenticate(const char * username, const char * password){
       }
       log_v("Hash of GET:uri=%s", _H2.c_str());
       String _responsecheck = "";
-      if(authReq.indexOf(FPSTR(qop_auth)) != -1 || authReq.indexOf(FPSTR(qop_auth_quoted)) != -1) {
+      if(authReq.indexOf(FPSTR(qop_auth)) != -1) {
           _responsecheck = md5str(_H1 + ':' + _nonce + ':' + _nc + ':' + _cnonce + F(":auth:") + _H2);
       } else {
           _responsecheck = md5str(_H1 + ':' + _nonce + ':' + _H2);
@@ -283,9 +280,6 @@ void WebServer::handleClient() {
   if (_currentStatus == HC_NONE) {
     WiFiClient client = _server.available();
     if (!client) {
-      if (_nullDelay) {
-        delay(1);
-      }
       return;
     }
 
@@ -314,12 +308,11 @@ void WebServer::handleClient() {
           _contentLength = CONTENT_LENGTH_NOT_SET;
           _handleRequest();
 
-// Fix for issue with Chrome based browsers: https://github.com/espressif/arduino-esp32/issues/3652
-//           if (_currentClient.connected()) {
-//             _currentStatus = HC_WAIT_CLOSE;
-//             _statusChange = millis();
-//             keepCurrentClient = true;
-//           }
+          if (_currentClient.connected()) {
+            _currentStatus = HC_WAIT_CLOSE;
+            _statusChange = millis();
+            keepCurrentClient = true;
+          }
         }
       } else { // !_currentClient.available()
         if (millis() - _statusChange <= HTTP_MAX_DATA_WAIT) {
@@ -377,10 +370,6 @@ void WebServer::setContentLength(const size_t contentLength) {
     _contentLength = contentLength;
 }
 
-void WebServer::enableDelay(boolean value) {
-  _nullDelay = value;
-}
-
 void WebServer::enableCORS(boolean value) {
   _corsEnabled = value;
 }
@@ -413,8 +402,6 @@ void WebServer::_prepareHeader(String& response, int code, const char* content_t
     }
     if (_corsEnabled) {
         sendHeader(String(FPSTR("Access-Control-Allow-Origin")), String("*"));
-	sendHeader(String(FPSTR("Access-Control-Allow-Methods")), String("*"));
-	sendHeader(String(FPSTR("Access-Control-Allow-Headers")), String("*"));
     }
     sendHeader(String(F("Connection")), String(F("close")));
 
@@ -467,23 +454,20 @@ void WebServer::send(int code, const String& content_type, const String& content
 }
 
 void WebServer::sendContent(const String& content) {
-  sendContent(content.c_str(), content.length());
-}
-
-void WebServer::sendContent(const char* content, size_t contentLength) {
   const char * footer = "\r\n";
+  size_t len = content.length();
   if(_chunked) {
     char * chunkSize = (char *)malloc(11);
     if(chunkSize){
-      sprintf(chunkSize, "%x%s", contentLength, footer);
+      sprintf(chunkSize, "%x%s", len, footer);
       _currentClientWrite(chunkSize, strlen(chunkSize));
       free(chunkSize);
     }
   }
-  _currentClientWrite(content, contentLength);
+  _currentClientWrite(content.c_str(), len);
   if(_chunked){
     _currentClient.write(footer, 2);
-    if (contentLength == 0) {
+    if (len == 0) {
       _chunked = false;
     }
   }

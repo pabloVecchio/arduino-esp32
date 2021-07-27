@@ -18,12 +18,11 @@
 
 bool btInUse(){ return true; }
 
+#ifdef CONFIG_BLUEDROID_ENABLED
 #include "esp_bt.h"
 
-#ifdef CONFIG_BTDM_CONTROLLER_MODE_BTDM
+#ifdef CONFIG_CLASSIC_BT_ENABLED
 #define BT_MODE ESP_BT_MODE_BTDM
-#elif defined(CONFIG_BTDM_CONTROLLER_MODE_BR_EDR_ONLY)
-#define BT_MODE ESP_BT_MODE_CLASSIC_BT
 #else
 #define BT_MODE ESP_BT_MODE_BLE
 #endif
@@ -80,7 +79,7 @@ bool btStop(){
     return false;
 }
 
-#else // CONFIG_BT_ENABLED
+#else
 bool btStarted()
 {
     return false;
@@ -95,6 +94,6 @@ bool btStop()
 {
     return false;
 }
-
-#endif // CONFIG_BT_ENABLED
+#endif
+#endif
 

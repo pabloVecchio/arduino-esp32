@@ -12,9 +12,12 @@ onlyLabels: []
 
 # Issues or Pull Requests with these labels will never be considered stale. Set to `[]` to disable
 exemptLabels:
-  - "Type: For reference"
-  - "Type: To be implemented"
-  - "Type: Feature request"
+  - pinned
+  - security
+  - "to be implemented"
+  - "for reference"
+  - "move to PR"
+  - "enhancement"
 
 # Set to true to ignore issues in a project (defaults to false)
 exemptProjects: false
@@ -26,7 +29,7 @@ exemptMilestones: false
 exemptAssignees: false
 
 # Label to use when marking as stale
-staleLabel: "Status: Stale"
+staleLabel: stale
 
 # Comment to post when marking as stale. Set to `false` to disable
 markComment: >

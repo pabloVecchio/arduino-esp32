@@ -109,7 +109,7 @@ public:
 
     int read(uint8_t * dst, size_t len){
         if(!dst || !len || (_pos == _fill && !fillBuffer())){
-            return _failed ? -1 : 0;
+            return -1;
         }
         size_t a = _fill - _pos;
         if(len <= a || ((len - a) <= (_size - _fill) && fillBuffer() >= (len - a))){
@@ -220,9 +220,9 @@ int WiFiClient::connect(IPAddress ip, uint16_t port, int32_t timeout)
 
     uint32_t ip_addr = ip;
     struct sockaddr_in serveraddr;
-    memset((char *) &serveraddr, 0, sizeof(serveraddr));
+    bzero((char *) &serveraddr, sizeof(serveraddr));
     serveraddr.sin_family = AF_INET;
-    memcpy((void *)&serveraddr.sin_addr.s_addr, (const void *)(&ip_addr), 4);
+    bcopy((const void *)(&ip_addr), (void *)&serveraddr.sin_addr.s_addr, 4);
     serveraddr.sin_port = htons(port);
     fd_set fdset;
     struct timeval tv;
@@ -321,7 +321,7 @@ int WiFiClient::setOption(int option, int *value)
 
 int WiFiClient::getOption(int option, int *value)
 {
-	socklen_t size = sizeof(int);
+    size_t size = sizeof(int);
     int res = getsockopt(fd(), IPPROTO_TCP, option, (char *)value, &size);
     if(res < 0) {
         log_e("fail on fd %d, errno: %d, \"%s\"", fd(), errno, strerror(errno));
@@ -353,9 +353,6 @@ int WiFiClient::read()
     int res = read(&data, 1);
     if(res < 0) {
         return res;
-    }
-    if (res == 0) {  //  No data available.
-        return -1;
     }
     return data;
 }
@@ -442,25 +439,20 @@ size_t WiFiClient::write(Stream &stream)
 int WiFiClient::read(uint8_t *buf, size_t size)
 {
     int res = -1;
-    if (_rxBuffer) {
-        res = _rxBuffer->read(buf, size);
-        if(_rxBuffer->failed()) {
-            log_e("fail on fd %d, errno: %d, \"%s\"", fd(), errno, strerror(errno));
-            stop();
-        }
+    res = _rxBuffer->read(buf, size);
+    if(_rxBuffer->failed()) {
+        log_e("fail on fd %d, errno: %d, \"%s\"", fd(), errno, strerror(errno));
+        stop();
     }
     return res;
 }
 
 int WiFiClient::peek()
 {
-    int res = -1;
-    if (_rxBuffer) {
-        res = _rxBuffer->peek();
-        if(_rxBuffer->failed()) {
-            log_e("fail on fd %d, errno: %d, \"%s\"", fd(), errno, strerror(errno));
-            stop();
-        }
+    int res = _rxBuffer->peek();
+    if(_rxBuffer->failed()) {
+        log_e("fail on fd %d, errno: %d, \"%s\"", fd(), errno, strerror(errno));
+        stop();
     }
     return res;
 }
